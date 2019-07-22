@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="/static/css/AdminLTE.min.css">
 <link rel="stylesheet" href="/static/assets/layer/theme/default/layer.css" />
 <link rel="stylesheet" href="/static/assets/webuploader/webuploader.css">
+<link rel="stylesheet" href="/static/assets/bootstrap-table/bootstrap-table.min.css" />
 <link rel="stylesheet" href="/static/css/common.css">
 <style type="text/css">
 .progressTip {
@@ -34,16 +35,99 @@
                     </div>
                 </div>
             </div>
+            <div class="box box-solid" style="margin-top:20px">
+                <div id="result" class="box-body">
+                    <table id="dataGrid"></table>
+                    <div id="toolbar">
+                        <div class="btn-group">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <input type="hidden" id="servletUrl" th:value="${servletUrl}" />
+            <input type="hidden" id="accessKey" th:value="${accessKey}" />
         </section>
     </div>
     <!--引入JS-->
     <script type="text/javascript" src="/static/assets/jquery/jquery-2.2.4.min.js"></script>
-    <script type="text/javascript" src="/static/assets/jquery/jquery-2.2.4.min.js"></script>
     <script type="text/javascript" src="/static/assets/bootstrap3/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="/static/assets/bootstrap-table/bootstrap-table.js"></script>
+    <script type="text/javascript" src="/static/assets/iCheck/icheck.min.js"></script>
+    <script type="text/javascript" src="/static/assets/select2/select2.min.js"></script>
+    <script type="text/javascript" src="/static/assets/bootstrap-suggest/bootstrap-suggest.js"></script>
     <script type="text/javascript" src="/static/assets/adminLTE/js/adminlte.min.js"></script>
     <script type="text/javascript" src="/static/assets/layer/layer.js"></script>
     <script type="text/javascript" src="/static/assets/webuploader/webuploader.js"></script>
+    <script type="text/javascript" src="/static/assets/jquery-validation/jquery.validate.min.js"></script>
+    <script type="text/javascript" src="/static/assets/jquery-form/jquery.form.min.js"></script>
+    <script type="text/javascript" src="/static/js/common.js"></script>
     <script type="text/javascript">
+    var table, servletUrl, accessKey;
+    $(function() {
+        servletUrl = $("#servletUrl").val();
+        accessKey = $("#accessKey").val();
+        initDataGrid();
+    });
+
+    function initDataGrid() {
+        table = $.createTable("#dataGrid", {
+            idField: "id",
+            columns: [
+                [{
+                        title: "文件名称",
+                        field: "name",
+                        formatter: function(value, row, index) {
+                            return servletUrl + value.replace(/\\/g,"/").substring(1);
+                        }
+                    },
+                    {
+                        title: "文件创建时间",
+                        field: "lastUpdateTime",
+                        formatter: "date"
+                    },
+                    {
+                        title: "文件大小",
+                        field: "size",
+                        formatter: function(value, row, index) {
+                            return value ? (value / 1024 / 1024).toFixed(2) + "M" : "-";
+                        }
+                    },
+                    {
+                        title: "操作",
+                        align: "center",
+                        width: "100px",
+                        events: {
+                            'click .remove': function(e, value, row, index) {
+                                remove(row);
+                            }
+                        },
+                        formatter: function operateFormatter(value, row, index) {
+                            var html = '<button class="remove btn btn-xs btn-danger"><i class="glyphicon glyphicon-remove"></i>删除</button>';
+                            return html;
+                        }
+                    }
+                ]
+            ],
+            url: '/find/video?accessKey=' + accessKey,
+            searchbar: '#searchbar',
+            showColumns: true,
+            pagination: false,
+            toolbar: "#toolbar",
+            showRefresh: true
+        });
+    }
+
+    function remove(row) {
+        if (row) {
+            layer.confirm('确定删除文件吗?', function() {
+                $.getAjax(encodeURI('/remove/video?accessKey=' + accessKey + '&pelativePath=' + row.pelativePath), function() {
+                    $.successMessage("删除成功");
+                    table.refresh();
+                });
+            });
+        }
+    }
+
     var chunkSize = 5 * 1024 * 1024;
     var curTitle, curPercentage, $progressBar, $progress;
 
@@ -208,10 +292,9 @@
         var url = file.md5 + '/' + file.name;
         getProgressBar(file, 100, "UPLOAD-SUCCESS");
         uploader.reset();
-        $.get("/url", function(data) {
-            url = data.result + url
-            $progress.html('<a target="_blank" href="' + url + '">视频上传成功，可访问连接：' + url + '</a>');
-        })
+        url = servletUrl + url;
+        $progress.html('<a target="_blank" href="' + url + '">视频上传成功，可访问连接：' + url + '</a>');
+        table.refresh();
     }
 
     function errorHandle(file) {
